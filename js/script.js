@@ -1,34 +1,98 @@
-fetch('https://hn.algolia.com/api/v1/search_by_date?tags=story&query=chatgpt')
-	.then((response) => response.json())
-	.then((data) => {
-		let hits = data.hits;
-		console.log(hits);
-		for (let i = 0; i < hits.length; i++) {
-			let story_title = hits[i].title.replace(/(chatgpt)/gi, '<b>$1</b>');
-			let story_comments = `https://news.ycombinator.com/item?id=${hits[i].objectID}`;
-			let num_comments = hits[i].num_comments ? hits[i].num_comments : 0;
-			let story_url = hits[i].url;
-			let story_points = hits[i].points;
-			let story_author = hits[i].author;
-			if (story_url == null) story_url = story_comments;
-			let story_domain = story_url
-				.replace(/http(s|):\/\//, '')
-				.split('/')[0]
-				.replace(/^www\./, '');
-			if (story_domain.match(/news.ycombinator.com/)) story_domain = '';
-			if (story_title == null) continue;
-			let news = document.getElementById('news');
-			news.innerHTML += `<li class="story">
-                <a href="${story_url}">${story_title}</a>
-                <span class="story-info">
-                    <span class="story-points">${story_points} points by <a href="https://news.ycombinator.com/user?id=${story_author}">${story_author}</a></span>
-                    <span>
-                        <a href="${story_comments}">${num_comments} comments</a>
-                    </span>
-                    <span>
-                        <a href="https://news.ycombinator.com/from?site=${story_domain}">${story_domain}</a>
-                    </span>
-                </span>
-            </li>`;
-		}
-	});
+const hitsPerPage = 30
+const page = 1
+
+function generatePostStory(
+  title,
+  author,
+  created_at,
+  points,
+  url,
+  num_comments,
+  objectID,
+  created_at
+) {
+  const fullURL = url ? url : `https://news.ycombinator.com/item?id=${objectID}`
+
+  const domain = !fullURL.match(/news.ycombinator.com/)
+    ? new URL(fullURL).hostname.replace('www.', '')
+    : null
+
+  const li = document.createElement('li')
+  li.classList.add('story')
+
+  const liItems = document.createElement('div')
+  liItems.classList.add('story-items')
+
+  const upArrow = document.createElement('span')
+  upArrow.classList.add('up-arrow')
+  upArrow.innerText = '▲'
+
+  const a = document.createElement('a')
+  a.classList.add('url')
+  a.href = fullURL
+  a.innerText = title
+
+  const domainSpan = document.createElement('span')
+  domainSpan.classList.add('domain')
+  domainSpan.innerHTML = domain
+    ? `(<a href="https://news.ycombinator.com/from?site=${domain}">${domain}</a>)`
+    : null
+
+  const storyInfo = document.createElement('span')
+  storyInfo.classList.add('story-info')
+
+  const pointsSpan = document.createElement('span')
+  pointsSpan.classList.add('points')
+  pointsSpan.innerText = `${points} points by `
+
+  const authorA = document.createElement('a')
+  authorA.classList.add('author')
+  authorA.href = `https://news.ycombinator.com/user?id=${author}`
+  authorA.innerText = author
+
+  const fakesSpan = document.createElement('span')
+  fakesSpan.classList.add('fakes')
+  fakesSpan.innerHTML = '&nbsp;| flag | hide |&nbsp;'
+
+  const commentsA = document.createElement('a')
+  commentsA.classList.add('comments')
+  commentsA.href = `https://news.ycombinator.com/item?id=${objectID}`
+  commentsA.innerText = num_comments ? `${num_comments} comments` : 'discuss'
+
+  storyInfo.appendChild(pointsSpan)
+  storyInfo.appendChild(authorA)
+  storyInfo.appendChild(fakesSpan)
+  storyInfo.appendChild(commentsA)
+
+  liItems.appendChild(upArrow)
+  liItems.appendChild(a)
+  liItems.appendChild(domainSpan)
+
+  li.appendChild(liItems)
+  li.appendChild(storyInfo)
+
+  document.getElementById('news').appendChild(li)
+}
+
+const query = 'AI'
+const baseURL = 'https://hn.algolia.com/api/v1/search_by_date'
+const parameters = `tags=story&query=${query}&page=${page}&hitsPerPage=${hitsPerPage}`
+
+fetch(`${baseURL}?${parameters}`)
+  .then((response) => response.json())
+  .then((data) => {
+    const hits = data.hits
+
+    hits.forEach((hit) => {
+      generatePostStory(
+        hit.title,
+        hit.author,
+        hit.created_at,
+        hit.points,
+        hit.url,
+        hit.num_comments,
+        hit.objectID,
+        hit.created_at
+      )
+    })
+  })
